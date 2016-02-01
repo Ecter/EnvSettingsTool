@@ -46,8 +46,8 @@ class Est_Handler_XmlFile extends Est_Handler_Abstract {
 
 
         $dom = new DOMDocument();
-        $dom->preserveWhiteSpace = true;
-        $dom->formatOutput = false;
+        $dom->preserveWhiteSpace = false;
+        $dom->formatOutput = true;
         $dom->loadXML($fileContent);
 
         $xpath = new DOMXPath($dom);
@@ -58,8 +58,7 @@ class Est_Handler_XmlFile extends Est_Handler_Abstract {
         }
 
         if ($elements->length == 0) {
-            $this->setStatus(Est_Handler_Interface::STATUS_SUBJECTNOTFOUND);
-            throw new Exception(sprintf('Xpath "%s" does not match any elements', $expression));
+            $elements = $this->_handleNonExistentNodes($expression, $xpath, $dom);
         }
 
         $changes = 0;
@@ -93,5 +92,39 @@ class Est_Handler_XmlFile extends Est_Handler_Abstract {
         return true;
     }
 
+    /**
+     * Adds non-existent nodes if possible.
+     * Returns array with leaf node.
+     *
+     * @param string $expression
+     * @param DOMXPath $xpath
+     * @param DOMDocument $dom
+     * @return array
+     * @throws Exception
+     */
+    protected function _handleNonExistentNodes($expression, $xpath, $dom)
+    {
+        $expressionParts = explode('/', $expression);
+        $poppedExpressionParts = array();
+        do {
+            $poppedExpressionParts[] = array_pop($expressionParts);
+            $shortenExpression = join('/', $expressionParts);
+            $elements = $xpath->query($shortenExpression);
+        } while ($elements->length === 0);
+        if ($elements->length === 1) {
+            $node = $elements->item(0);
+            $newNodeNames = array_reverse($poppedExpressionParts);
+            foreach ($newNodeNames as $newNodeName) {
+                $newNode = $dom->createElement($newNodeName);
+                $node->appendChild($newNode);
+                $node = $newNode;
+            }
+            $elements = array($node);
+            return $elements;
+        } else {
+            $this->setStatus(Est_Handler_Interface::STATUS_ERROR);
+            throw new Exception(sprintf('Unable to save value fpr "%s" Xpath', $expression));
+        }
+    }
 
 }
