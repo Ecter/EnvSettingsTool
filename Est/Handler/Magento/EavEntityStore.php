@@ -119,6 +119,36 @@ class Est_Handler_Magento_EavEntityStore extends Est_Handler_Magento_AbstractDat
         }
 
         $this->_incrementPrefix = $this->_storeId . $incrementPrefix;
-        $this->_incrementLastId = $this->_incrementPrefix . '00000000';
+        $orderNumber = $this->_getLastOrderNumber();
+        $this->_incrementLastId = $this->_incrementPrefix . $orderNumber;
+    }
+
+    /**
+     * Try to read existing increment_last_id instead of hardcoded zero
+     * 
+     * @return string
+     */
+    protected function _getLastOrderNumber()
+    {
+        //Default value
+        $increment = '00000000';
+
+        //Load from DB
+        if (!empty($this->_entityTypeId) && !empty($this->_storeId)) {
+            $getQuery = 'SELECT * FROM `' . $this->_tablePrefix . 'eav_entity_store`'
+                . ' WHERE `entity_type_id`=:entity_type_id AND `store_id`=:store_id';
+            $row = $this->_getFirstRow(
+                $getQuery, array(
+                'entity_type_id' => $this->_entityTypeId,
+                'store_id' => $this->_storeId
+                )
+            );
+
+            if (!empty($row['increment_last_id'])) {
+                $increment = substr($row['increment_last_id'], -8);
+            }
+        }
+
+        return $increment;
     }
 }
